@@ -1,0 +1,52 @@
+# Include these locations inside the existing mail.wesperr.studio HTTPS server.
+# The broker port is bound to 127.0.0.1, so it is not publicly reachable directly.
+
+location = /admin {
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_pass http://127.0.0.1:8095;
+}
+
+location ^~ /access/ {
+    # Tokens must not be written into the system Nginx access log.
+    access_log off;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_pass http://127.0.0.1:8095;
+}
+
+location ^~ /mailbox-access/ {
+    # The broker keeps a token-safe audit trail.
+    access_log off;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_pass http://127.0.0.1:8095;
+}
+
+location ^~ /access-links/ {
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_pass http://127.0.0.1:8095;
+}
+
+location = /access-links {
+    return 308 /access-links/;
+}
+
+# Prevent direct use of Mailcow's generic login form.
+location = / {
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_pass http://127.0.0.1:8095;
+}
+

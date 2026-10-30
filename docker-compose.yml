@@ -1,0 +1,75 @@
+services:
+  broker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL}
+      MAILCOW_BASE_URL: ${MAILCOW_BASE_URL:?set MAILCOW_BASE_URL}
+      MAILCOW_INTERNAL_URL: ${MAILCOW_INTERNAL_URL:?set MAILCOW_INTERNAL_URL}
+      MAILCOW_INTERNAL_TLS_VERIFY: ${MAILCOW_INTERNAL_TLS_VERIFY:-1}
+      MAILCOW_ADMIN_USERNAME: ${MAILCOW_ADMIN_USERNAME:?set MAILCOW_ADMIN_USERNAME}
+      TRUSTED_ADMIN_CIDRS: ${TRUSTED_ADMIN_CIDRS:?set TRUSTED_ADMIN_CIDRS}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-127.0.0.1/32,172.16.0.0/12}
+      MAILCOW_DB_HOST: ${MAILCOW_DB_HOST:-mysql-mailcow}
+      MAILCOW_DB_PORT: ${MAILCOW_DB_PORT:-3306}
+      MAILCOW_DB_NAME: ${MAILCOW_DB_NAME:?set MAILCOW_DB_NAME}
+      MAILCOW_DB_USER: ${MAILCOW_DB_USER:?set MAILCOW_DB_USER}
+      MAILCOW_DB_PASSWORD: ${MAILCOW_DB_PASSWORD:?set MAILCOW_DB_PASSWORD}
+      MAILCOW_REDIS_HOST: ${MAILCOW_REDIS_HOST:-redis-mailcow}
+      MAILCOW_REDIS_PORT: ${MAILCOW_REDIS_PORT:-6379}
+      MAILCOW_REDIS_PASSWORD: ${MAILCOW_REDIS_PASSWORD:?set MAILCOW_REDIS_PASSWORD}
+      MAILCOW_SESSION_COOKIE: ${MAILCOW_SESSION_COOKIE:-MCSESSID}
+      MAILCOW_SESSION_PREFIX: ${MAILCOW_SESSION_PREFIX:-PHPREDIS_SESSION:}
+      MAILCOW_SESSION_TTL: ${MAILCOW_SESSION_TTL:-10800}
+      BROKER_SECRET: ${BROKER_SECRET:?set BROKER_SECRET}
+      AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-90}
+    volumes:
+      - broker-data:/var/lib/mailcow-access
+    ports:
+      - "${BROKER_BIND:-127.0.0.1}:${BROKER_PORT:-8095}:80"
+    networks:
+      - mailcow
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - NET_BIND_SERVICE
+      - SETGID
+      - SETUID
+
+  local-gateway:
+    profiles: ["local"]
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      broker:
+        condition: service_healthy
+    ports:
+      - "${LOCAL_HTTPS_BIND:-0.0.0.0}:${LOCAL_HTTPS_PORT:-9443}:443"
+    networks:
+      - mailcow
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  mailcow:
+    external: true
+    name: ${MAILCOW_NETWORK:?set MAILCOW_NETWORK}
+
+volumes:
+  broker-data:
+
